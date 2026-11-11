@@ -50,6 +50,11 @@ export default {
       checkDatabase(),
     ]);
 
-    return Response.json({ connected, databaseConnected });
+    return Response.json({
+      connected,
+      databaseConnected,
+      lensConfigured: Boolean(process.env.SERPAPI_API_KEY),
+      braveConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
+    }, { headers: { "Cache-Control": "no-store" } });
   },
 };
