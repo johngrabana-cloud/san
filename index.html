@@ -25238,11 +25238,16 @@ function mockAnalyze(d,comps){ var en=function(t){ return String(t||'').replace(
   if(d.colors[0]) specs.push({name:'Color',value:d.colors[0]==='ดำ'?'Black':(en(d.colors[0])||d.colors[0]),source:'shop'}); if(d.sizes[0]) specs.push({name:'Size',value:d.sizes[0],source:'shop'});
   var p=d.id?byId(DB.products,d.id):null, fit=p?heurFit(p,get(p.id)):{score:50,verdict:'consider',reasons:['ผลจำลอง — ต้องใช้ AI จริงเพื่อประเมินจากภาพ']};
   var st=d.story;
+  var saved=p&&get(p.id);
+  if(!st&&saved&&saved.status==='draft'&&saved.aiDraft&&saved.aiDraft.source==='gemini'){
+    st={summary:saved.summary,history:saved.history.text,collectionLabel:saved.history.collectionLabel,
+      collectionYear:saved.history.collectionYear,refs:saved.history.refs,imageCandidates:saved.aiDraft.imageCandidates};
+  }
   return {identified:d.upload?{nameTh:d.name||'สินค้าจากรูปที่อัปโหลด (ผลจำลอง)',type:'-',brand:null,materials:[],colors:[],conditionGuess:'ต้องตรวจสอบ',confidence:'low'}:null,
     title:title,categoryHint:slayer?'Clothing, Shoes & Accessories > Men > Men\'s Clothing > Shirts > T-Shirts':'(ระบุหมวด eBay ให้ตรงสินค้า)',conditionId:used?'3000':'1000',conditionNote:used?'Pre-owned. Please see all photos for details.':'New item.',
     itemSpecifics:specs,description:'Condition: '+(used?'pre-owned':'new')+'. Please review all photos carefully. Measurements available on request.\n\nShips from Thailand via SANSO Marketplace.',keywords:[en(d.brand)].filter(Boolean),
     priceUSD:comps?Math.round(comps.median):(d.price?Math.round(d.price/RATE.usdThb):null),priceRationale:comps?'มัธยฐานราคาตั้งขาย eBay ที่เลือก ('+comps.count+' รายการ)':'แปลงจากราคาบน SANSO',
-    story:{summaryTh:st?st.summary:(d.name||''),historyTh:st?st.history:'ยังไม่มีข้อมูลประวัติจากร้าน — ต้องค้นแหล่งอ้างอิงก่อนเขียนประวัติ',collectionLabel:st?st.collectionLabel:'ปีเปิดตัวคอลเลกชัน',collectionYear:st?st.collectionYear:'',searchQueries:[(en(d.brand)+' '+en(d.name)).trim()||'vintage item history'].filter(Boolean)},
+    story:{summaryTh:st?st.summary:(d.name||''),historyTh:st?st.history:'',references:st&&st.refs||[],imageCandidates:st&&st.imageCandidates||[],collectionLabel:st?st.collectionLabel:'ปีเปิดตัวคอลเลกชัน',collectionYear:st?st.collectionYear:'',searchQueries:[(en(d.brand)+' '+en(d.name)).trim()||'vintage item history'].filter(Boolean)},
     ebayFit:{score:fit.score,verdict:fit.verdict,reasonsTh:fit.reasons},needsVerification:['ขนาดจริงและตำหนิ','ปีผลิต','แบรนด์/ความแท้ (ถ้ามี)'],photoObservations:['(ผลจำลอง — ไม่ได้วิเคราะห์ภาพจริง)'],notesTh:'ผลจำลอง: เปิดหน้านี้บน claude.ai เพื่อให้ Claude วิเคราะห์ภาพจริง'}; }
 function analyze(){
   var d=curData(); if(!d){ toast('กรุณาเลือกสินค้าหรืออัปโหลดรูปก่อน','err'); return; }
@@ -25273,10 +25278,10 @@ function aiPanel(n){
   if(AI.status==='run') return h+'<div class="scn-ai-run"><span class="scn-spin" aria-hidden="true"></span><b>กำลังวิเคราะห์…</b> <button type="button" class="btn btn-sm" data-scn-a="ai-stop">หยุด</button><pre id="scnAiLive" class="scn-live">'+esc(AI.live.slice(-600))+'</pre></div></div>';
   if(!AI.data||AI.pid!==key) return h+(AI.err?'<div class="scn-warn">'+esc(AI.err)+'</div>':'')+'<button type="button" class="btn btn-primary" data-scn-a="ai">วิเคราะห์ด้วย AI</button></div>';
   var d=AI.data, f=d.ebayFit||{}, l=FIT_L[f.verdict]||FIT_L.consider, idf=d.identified, s=d.story||{};
-  h+=(AI.err?'<div class="scn-warn">'+esc(AI.err)+'</div>':'')+(AI.source==='mock'?'<div class="scn-warn" style="border-color:#ff6b5e;color:#ff9a90">ผลจำลอง · ไม่ได้วิเคราะห์ด้วย AI จริง</div>':'');
+  h+=(AI.err?'<div class="scn-warn">'+esc(AI.err)+'</div>':'')+(AI.source==='mock'?'<div class="scn-warn" style="border-color:#ff6b5e;color:#ff9a90">ส่วนประเมินและร่างประกาศ eBay เป็นผลจำลอง</div>':'');
   h+='<div class="scn-2">'+(idf&&!SC.pid?'<div class="scn-chk"><b>AI ระบุสินค้าจากภาพ</b><ul><li>'+esc(idf.nameTh||'-')+'</li><li>ประเภท: '+esc(idf.type||'-')+' · แบรนด์: '+esc(idf.brand||'ไม่พบโลโก้/ป้ายที่อ่านได้')+'</li><li>วัสดุ: '+esc((idf.materials||[]).join(', ')||'-')+' · สี: '+esc((idf.colors||[]).join(', ')||'-')+'</li><li>สภาพ (ประเมินจากภาพ): '+esc(idf.conditionGuess||'-')+'</li><li>ความมั่นใจ: '+esc(idf.confidence||'-')+'</li></ul></div>':'')
     +'<div class="scn-chk scn-fitbox"><b>ความเหมาะสมในการฝากขายบน eBay</b><div class="scn-fitrow"><span class="scn-score '+l[1]+'">'+Math.round(+f.score||0)+'</span><span class="scn-fit '+l[1]+'">'+l[0]+'</span></div><ul>'+(f.reasonsTh||[]).map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ul></div></div>';
-  h+='<h4 class="scn-h4">ร่างประวัติสินค้า (จาก AI)</h4><div class="scn-2"><div><label class="label">คำอธิบายสั้น</label><input class="input" data-ai-st="summaryTh" value="'+esc(s.summaryTh||'')+'"/><label class="label">ประวัติความเป็นมา</label><textarea class="textarea" data-ai-st="historyTh" rows="6">'+esc(s.historyTh||'')+'</textarea></div>'
+  h+='<h4 class="scn-h4">ร่างประวัติสินค้า</h4>'+adminHistoryResults(SC.pid,s)+'<div class="scn-2"><div><label class="label">คำอธิบายสั้น</label><input class="input" data-ai-st="summaryTh" value="'+esc(s.summaryTh||'')+'"/><label class="label">ประวัติความเป็นมา</label><textarea class="textarea" data-ai-st="historyTh" rows="6">'+esc(s.historyTh||'')+'</textarea></div>'
     +'<div><div class="scn-2" style="gap:8px"><div><label class="label">หัวข้อปี</label><input class="input" data-ai-st="collectionLabel" value="'+esc(s.collectionLabel||'ปีเปิดตัวคอลเลกชัน')+'"/></div><div><label class="label">ปีคอลเลกชัน (ถ้ามีหลักฐาน)</label><input class="input" data-ai-st="collectionYear" value="'+esc(s.collectionYear||'')+'"/></div></div>'
     +'<label class="label">คำค้นสำหรับหาแหล่งอ้างอิง</label><div class="scn-ents">'+(s.searchQueries||[]).map(function(q){ return '<a href="https://www.google.com/search?q='+encodeURIComponent(q)+'" target="_blank" rel="noopener noreferrer">'+esc(q)+' ↗</a>'; }).join('')+'</div>'
     +'<p class="tiny dim">ปีผลิตของชิ้นนี้ตั้งเป็น “รอตรวจสอบ” เสมอ · ต้องใส่แหล่งอ้างอิงที่เปิดได้ก่อนเผยแพร่บนหน้าสินค้า</p>'
@@ -25292,12 +25297,14 @@ function aiPanel(n){
     +'<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn btn-primary" data-scn-a="ai-save">บันทึกร่างประกาศ eBay</button><button type="button" class="btn" data-scn-a="ai-copy">คัดลอกข้อมูลประกาศ</button><button type="button" class="btn" data-scn-a="ai">วิเคราะห์ใหม่</button></div>'
     +'<div class="tiny dim" style="margin-top:8px">ร่างนี้ยังไม่ส่งขึ้น eBay — ขั้นต่อไปเชื่อม eBay Sell Inventory API เพื่อสร้างประกาศจริงหลังผ่านการอนุมัติ</div></div>';
   return h; }
-function saveStoryDraft(){ var p=byId(DB.products,SC.pid), s=AI.data&&AI.data.story; if(!p||!s) return;
+function saveStoryDraft(){ var p=byId(DB.products,SC.pid), s=AI.data&&AI.data.story; if(!p||!s||AI.pid!==p.id) return;
+  if(!String(s.historyTh||'').trim()) return toast('กรุณาสร้างหรือกรอกประวัติสินค้าก่อนบันทึก','err');
   var ex=get(p.id), ims=[prodImg(p,0),prodImg(p,1),prodImg(p,2)];
-  var hist={text:s.historyTh||'',collectionLabel:s.collectionLabel||'ปีเปิดตัวคอลเลกชัน',collectionYear:s.collectionYear||'',itemYear:'',itemYearStatus:'pending',refs:[{title:'',url:''}]};
-  if(ex&&ex.status==='published'){ ex.aiSuggestion={summary:s.summaryTh,history:hist,at:Date.now(),source:AI.source}; put(ex); toast('เก็บเป็นข้อเสนอจาก AI แล้ว — เรื่องราวที่เผยแพร่อยู่ไม่เปลี่ยน','ok'); return; }
+  var hist={text:s.historyTh||'',collectionLabel:s.collectionLabel||'ปีเปิดตัวคอลเลกชัน',collectionYear:s.collectionYear||'',itemYear:'',itemYearStatus:'pending',refs:Array.isArray(s.references)&&s.references.some(function(r){return safeUrl(r.url);})?s.references.filter(function(r){return safeUrl(r.url);}):((ex&&ex.status!=='published'&&ex.history&&ex.history.refs)||[{title:'',url:''}])};
+  var source=s.historySource||AI.source, imageCandidates=s.imageCandidates||[];
+  if(ex&&ex.status==='published'){ ex.aiSuggestion={summary:s.summaryTh,history:hist,at:Date.now(),source:source,imageCandidates:imageCandidates}; put(ex); toast('เก็บเป็นข้อเสนอจาก AI แล้ว — เรื่องราวที่เผยแพร่อยู่ไม่เปลี่ยน','ok'); return; }
   var st=ex||{productId:p.id,status:'draft',poster:{personName:'',productLine:p.name,pattern:'',detail:'',credit:'',creditUrl:'',image:'',verified:false,rights:false},panels:['overview','zoom','angle'].map(function(k,i){ return {kind:k,image:ims[i===1?0:i],zoom:{x:50,y:50,s:i===1?2:1},source:'ภาพสินค้าจากร้าน'}; })};
-  st.summary=s.summaryTh||''; st.history=hist; st.status='draft'; st.aiDraft={at:Date.now(),source:AI.source};
+  st.summary=s.summaryTh||''; st.history=hist; st.status='draft'; st.aiDraft={at:Date.now(),source:source,imageCandidates:imageCandidates};
   put(st); toast('บันทึกร่างประวัติสินค้าแล้ว — ร้านตรวจและเผยแพร่ได้ที่ Seller Centre','ok'); scanRerender(); }
 function aiEvents2(){
   document.addEventListener('input',function(e){ var t=e.target; if(!t.closest||!t.closest('main .scn')) return; var k=t.getAttribute('data-scn');
@@ -25314,6 +25321,7 @@ function aiEvents2(){
     if(a==='rank'){ e.stopPropagation(); rankSelected(); return; }
     if(a==='sel-clear'){ e.stopPropagation(); SC.sel={}; scanRerender(); return; }
     if(a==='sel-page'){ e.stopPropagation(); SC.sel=SC.sel||{}; catalog().slice(0,SC.limit||24).some(function(p){ if(Object.keys(SC.sel).length>=12) return true; SC.sel[p.id]=1; return false; }); scanRerender(); return; }
+    if(a==='ai-story-search'){ e.stopPropagation(); fetchAdminHistory(); return; }
     if(a==='ai-story'){ e.stopPropagation(); saveStoryDraft(); return; } },true);
   document.addEventListener('keydown',function(e){ var t=e.target; if((e.key==='Enter'||e.key===' ')&&t.classList&&t.classList.contains('scn-pc')){ e.preventDefault(); setProduct(t.getAttribute('data-scn-open')); scanRerender(); } }); }
 var AI2_CSS='.scn-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.scn-tools .input{flex:1;min-width:220px}.scn-tools .select{width:auto}.scn-bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:12px}.scn-bulk span{margin-right:auto}'
@@ -25688,6 +25696,65 @@ function geminiResult(p,result,mode){
     searchStatus:result.searchStatus,
     canPublish:mode==='live'&&result.autoPublishEligible===true&&result.needsReview===false&&refs.length>0};
 }
+async function requestGeminiStory(p,settings){
+  var category=byId(DB.categories,p.category_id);
+  var scan=await scanHistoryImage(p);
+  if(scan.status!=='identified') throw new Error('ชุดรูปยังไม่ตรงกับรายการอ้างอิงใน Neon');
+  var raw=await geminiRequest('generate',{productId:p.id,name:p.name,brand:p.brand,
+    category:category&&category.name,description:p.description,images:p.images,sellerAnswers:p.story_intake,
+    scanId:scan.scanId,prompt:settings.prompt+(settings.referenceReview?'\nอธิบายสิ่งที่เห็นในรูปจริงใน productDetails และอย่าเดาลิงก์':'')});
+  return geminiResult(p,raw,settings.mode);
+}
+function adminHistoryResults(id,story){
+  var p=chatProduct(id);
+  if(!p||!storyUsedCondition(p.condition)) return '';
+  var hasAnswers=Array.isArray(p.story_intake)&&p.story_intake.some(function(a){return a&&a.text;});
+  var refs=(story.references||[]).filter(function(r){return r&&safeUrl(r.url);});
+  var images=(story.imageCandidates||[]).filter(function(r){return r&&safeUrl(r.imageUrl)&&safeUrl(r.sourceUrl);});
+  return (hasAnswers?'<button type="button" class="btn btn-sm" data-scn-a="ai-story-search"'+(story.historyBusy?' disabled':'')+'>'
+    +(story.historyBusy?'กำลังสร้างร่างและค้นภาพ…':'สร้างร่างและค้นภาพด้วย Gemini')+'</button>'
+    :'<p class="tiny dim">ให้ร้านบันทึกคำตอบประวัติของสินค้านี้ใน Seller Centre ก่อน แล้วกลับมาเปิดรายการอีกครั้ง</p>')
+    +(story.historyMessage?'<p role="status">'+esc(story.historyMessage)+'</p>':'')
+    +(refs.length?'<h5>แหล่งอ้างอิงประวัติ</h5><ul>'+refs.map(function(r){
+      return '<li><a href="'+esc(safeUrl(r.url))+'" target="_blank" rel="noopener noreferrer">'+esc(r.title||'เปิดแหล่งอ้างอิง')+' ↗</a></li>';
+    }).join('')+'</ul>':'')
+    +(images.length?'<h5>ภาพอ้างอิงสำหรับตรวจสอบ</h5><p class="tiny dim">เปิดต้นทางเพื่อเทียบรุ่น ลาย หรือป้ายก่อนใช้ภาพ</p>'+referenceCards(images,''):'');
+}
+async function fetchAdminHistory(){
+  var p=chatProduct(SC.pid), data=AI.data, story=data&&data.story, settings=geminiSettings();
+  if(!scanAllowed()||!p||!storyUsedCondition(p.condition)||!story||story.historyBusy||
+    AI.pid!==p.id||!Array.isArray(p.story_intake)||!p.story_intake.some(function(a){return a&&a.text;})) return;
+  if(settings.mode!=='live'){
+    story.historyMessage='เปิดโหมด “เรียก Backend จริง” ในหน้าตั้งค่า Gemini API ก่อน';
+    scanRerender();
+    return;
+  }
+  var version=chatVersion(p), answers=JSON.stringify(p.story_intake);
+  story.historyBusy=true;
+  story.historyMessage='';
+  scanRerender();
+  try{
+    var generated=await requestGeminiStory(p,settings), current=chatProduct(p.id);
+    if(AI.data!==data||SC.pid!==p.id||!current||chatVersion(current)!==version||
+      JSON.stringify(current.story_intake)!==answers) return;
+    story.summaryTh=generated.summary;
+    story.historyTh=generated.history;
+    story.historySource='gemini';
+    story.references=generated.refs;
+    story.imageCandidates=generated.imageRefs.filter(function(r){return safeUrl(r.imageUrl);});
+    var lens=generated.searchStatus&&generated.searchStatus.lens;
+    var lensMessage={not_configured:'ยังไม่ได้ตั้งคีย์ SerpApi',key_or_plan:'ตรวจคีย์และสิทธิ์ SerpApi',
+      quota_or_plan:'ตรวจโควตา SerpApi',unavailable:'ค้นภาพด้วย Lens ไม่สำเร็จ',no_image:'ไม่มีรูปหลักที่ใช้ค้นได้',
+      no_results:'Lens ไม่พบภาพคล้าย',found:'พบภาพคล้ายจาก Lens'}[lens]||'';
+    story.historyMessage=['สร้างร่างจากรูปและคำตอบร้านแล้ว',lensMessage,
+      generated.refs.length?'':'ยังไม่มีแหล่งข้อความสำหรับอ้างอิงประวัติ'].filter(Boolean).join(' · ');
+  }catch(error){
+    story.historyMessage='สร้างร่างไม่สำเร็จ · '+(error.message||'ตรวจการเชื่อมต่อ Gemini');
+  }finally{
+    story.historyBusy=false;
+    if(AI.data===data&&SC.pid===p.id) scanRerender();
+  }
+}
 async function prepareGeminiStory(id,force){
   var p=chatProduct(id); if(!p||!storyUsedCondition(p.condition)||!p.story_intake||!p.story_intake.length) return;
   var settings=geminiSettings(); if(settings.mode!=='live') return;
@@ -25703,17 +25770,10 @@ async function prepareGeminiStory(id,force){
   if(!chatPut(c)) return;
   geminiRunning.set(id,false);
   try{
-    var category=byId(DB.categories,p.category_id);
-    var imageScan=await scanHistoryImage(p);
-    if(imageScan.status!=='identified'){
-      var blocked=chatGet(id);
-      if(blocked&&blocked.geminiJob===job){blocked.geminiState='error';blocked.geminiError='ไม่พบชุดรูปที่ตรงครบในฐานข้อมูล';chatPut(blocked);}
-      return;
-    }
-    var raw=await geminiRequest('generate',{productId:p.id,name:p.name,brand:p.brand,category:category&&category.name,description:p.description,images:p.images,sellerAnswers:p.story_intake,scanId:imageScan.scanId,prompt:settings.prompt+(settings.referenceReview?'\nเพิ่ม productDetails ที่อธิบายเฉพาะสิ่งที่เห็นในรูปจริง และ imageReferences [{imageUrl,sourceUrl,title,match}] โดยเก็บ URL รูปจริงคู่กับหน้าต้นทาง ห้ามเดาลิงก์':'')});
+    var generated=await requestGeminiStory(p,settings);
     var current=chatProduct(id), latest=chatGet(id);
     if(!current||!storyUsedCondition(current.condition)||chatVersion(current)!==version||JSON.stringify(current.story_intake)!==JSON.stringify(p.story_intake)||!latest||latest.geminiJob!==job) return;
-    latest.gemini=geminiResult(current,raw,settings.mode);latest.geminiState='ready';delete latest.geminiError;
+    latest.gemini=generated;latest.geminiState='ready';delete latest.geminiError;
     if(!chatPut(latest)) return;
     if(settings.auto&&!settings.referenceReview&&latest.gemini.canPublish&&latest.gemini.history&&current.status==='active'&&latest.status==='draft'){
       var story=chatDraft(current,latest);story.history.text=latest.gemini.history;story.history.refs=latest.gemini.refs;story.demo=false;story.status='published';story.publishedAt=Date.now();
@@ -25721,7 +25781,7 @@ async function prepareGeminiStory(id,force){
     }
   }catch(e){
     var failed=chatGet(id);
-    if(failed&&failed.geminiJob===job){failed.geminiState='error';failed.geminiError='เตรียมประวัติไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่';chatPut(failed);}
+    if(failed&&failed.geminiJob===job){failed.geminiState='error';failed.geminiError=e.message==='ชุดรูปยังไม่ตรงกับรายการอ้างอิงใน Neon'?e.message:'เตรียมประวัติไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่';chatPut(failed);}
   }finally{var queued=geminiRunning.get(id);geminiRunning.delete(id);if(queued) prepareGeminiStory(id,false);}
 }
 function geminiSettingsPage(){
